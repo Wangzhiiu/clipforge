@@ -29,6 +29,7 @@
       this.height = 1080;
       this.fps = 30;
       this.assets = new Map();
+      this.transitions = [];
       this.tracks = [
         { id: 'v1', type: 'video', name: '视频轨 1', clips: [] },
         { id: 'v2', type: 'video', name: '视频轨 2', clips: [] },
@@ -51,13 +52,36 @@
 
     addClip(trackId, clip) {
       const tr = this.tracks.find((t) => t.id === trackId);
-      if (tr) tr.clips.push(clip);
+      if (tr) {
+        clip.trackId = trackId;
+        tr.clips.push(clip);
+      }
     }
 
     removeClip(clipId) {
       for (const tr of this.tracks) {
         tr.clips = tr.clips.filter((c) => c.id !== clipId);
       }
+      // 清理引用该片段的转场
+      this.transitions = this.transitions.filter((tr) => tr.aClipId !== clipId && tr.bClipId !== clipId);
+    }
+
+    getTransitionBetween(aClipId, bClipId) {
+      return this.transitions.find((tr) => tr.aClipId === aClipId && tr.bClipId === bClipId);
+    }
+
+    addTransition(trackId, aClipId, bClipId, type, duration) {
+      let tr = this.getTransitionBetween(aClipId, bClipId);
+      if (tr) {
+        tr.type = type;
+        tr.duration = duration;
+      } else {
+        this.transitions.push({ id: uid(), type, duration, trackId, aClipId, bClipId });
+      }
+    }
+
+    removeTransitionBetween(aClipId, bClipId) {
+      this.transitions = this.transitions.filter((tr) => !(tr.aClipId === aClipId && tr.bClipId === bClipId));
     }
 
     getClip(clipId) {
@@ -82,6 +106,8 @@
         });
         c.duration = t - c.start;
         tr.clips.splice(i + 1, 0, right);
+        // 分割后清理引用原片段的转场，避免转场错位
+        this.transitions = this.transitions.filter((x) => x.aClipId !== clipId && x.bClipId !== clipId);
         return true;
       }
       return false;
@@ -100,7 +126,8 @@
           id: a.id, kind: a.kind, name: a.name, duration: a.duration,
           width: a.width, height: a.height
         })),
-        tracks: this.tracks.map((t) => ({ id: t.id, type: t.type, name: t.name, clips: t.clips }))
+        tracks: this.tracks.map((t) => ({ id: t.id, type: t.type, name: t.name, clips: t.clips })),
+        transitions: this.transitions
       }, null, 2);
     }
 
@@ -124,9 +151,10 @@
       if (Array.isArray(data.tracks)) {
         p.tracks = data.tracks.map((t) => ({
           id: t.id, type: t.type, name: t.name,
-          clips: (t.clips || []).map((c) => Object.assign({}, c, { filters: Object.assign({}, VE.util.defaultFilters(), c.filters || {}) }))
+          clips: (t.clips || []).map((c) => Object.assign({}, c, { trackId: t.id, filters: Object.assign({}, VE.util.defaultFilters(), c.filters || {}) }))
         }));
       }
+      p.transitions = Array.isArray(data.transitions) ? data.transitions : [];
       return p;
     }
   };
@@ -192,7 +220,19 @@
           this.renderProps();
         },
         onDelete: (id) => this._deleteClip(id),
-        onEditText: (id) => { this.selectClip(id); const ta = document.getElementById('prop-text'); if (ta) ta.focus(); }
+        onEditText: (id) => { this.selectClip(id); const ta = document.getElementById('prop-text'); if (ta) ta.focus(); },
+        onTransitionChange: (trackId, aId, bId, type, duration) => {
+          this.project.addTransition(trackId, aId, bId, type, duration);
+          this.timeline.rebuild();
+          this.timeline.setTime(this.player.time);
+          this.player.refresh();
+        },
+        onTransitionDelete: (aId, bId) => {
+          this.project.removeTransitionBetween(aId, bId);
+          this.timeline.rebuild();
+          this.timeline.setTime(this.player.time);
+          this.player.refresh();
+        }
       });
     }
 
@@ -519,6 +559,13 @@
           html.push(this._sliderRow('音量', 'prop-volume', (clip.volume === undefined ? 1 : clip.volume) * 100, 0, 200, '%'));
         }
         html.push('</div>');
+        // 一键预设效果
+        html.push('<div class="prop-group"><label>预设效果</label>');
+        html.push('<div class="preset-grid">');
+        for (const pr of VE.PRESETS) {
+          html.push('<button class="preset-item" data-preset="' + pr.id + '" title="' + pr.name + '">' + pr.icon + '<span>' + pr.name + '</span></button>');
+        }
+        html.push('</div></div>');
         html.push('<div class="prop-group"><label>滤镜</label>');
         html.push(this._sliderRow('亮度', 'prop-brightness', (f.brightness === undefined ? 1 : f.brightness) * 100, 0, 300, '%'));
         html.push(this._sliderRow('对比度', 'prop-contrast', (f.contrast === undefined ? 1 : f.contrast) * 100, 0, 300, '%'));
@@ -605,6 +652,25 @@
 
       // 滤镜
       const f = clip.filters = clip.filters || VE.util.defaultFilters();
+
+      // 预设效果：一键应用滤镜组合
+      const presetEls = this.el.propsBody.querySelectorAll('.preset-item');
+      presetEls.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const pr = VE.PRESETS.find((x) => x.id === btn.dataset.preset);
+          if (!pr) return;
+          if (pr.filters) {
+            Object.assign(f, VE.util.defaultFilters(), pr.filters);
+          } else {
+            Object.assign(f, VE.util.defaultFilters());
+          }
+          this.timeline.rebuild();
+          this.timeline.setTime(this.player.time);
+          this.player.refresh();
+          this.renderProps();
+        });
+      });
+
       range('prop-brightness', (v) => { f.brightness = v / 100; });
       range('prop-contrast', (v) => { f.contrast = v / 100; });
       range('prop-saturation', (v) => { f.saturation = v / 100; });
