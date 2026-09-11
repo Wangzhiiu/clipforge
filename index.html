@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipForge · 网页视频剪辑器</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">▚</span>
+      <div class="brand-text">
+        <strong>ClipForge</strong>
+        <span class="sub">网页视频剪辑器</span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <label class="btn primary" for="media-input">＋ 导入媒体</label>
+      <input type="file" id="media-input" accept="video/*,image/*,audio/*" multiple hidden>
+      <button class="btn" id="btn-text" title="在播放头处添加字幕片段">＋ 字幕</button>
+      <span class="sep"></span>
+      <button class="btn" id="btn-split" title="在播放头处分割选中片段 (S)">✂ 分割</button>
+      <button class="btn danger" id="btn-delete" title="删除选中片段 (Del)">🗑 删除</button>
+      <span class="sep"></span>
+      <button class="btn" id="btn-save" title="下载项目文件 (JSON)">💾 保存</button>
+      <button class="btn" id="btn-load" title="加载项目文件">📂 加载</button>
+      <input type="file" id="project-input" accept=".json,application/json" hidden>
+      <span class="sep"></span>
+      <button class="btn accent" id="btn-export">🚀 导出成片</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <aside id="library">
+      <div class="panel-head">
+        <h3>素材库</h3>
+        <span class="hint">点击素材添加至时间线</span>
+      </div>
+      <div id="media-list"></div>
+      <div class="empty" id="library-empty">
+        <div class="empty-icon">🎞</div>
+        <div>导入视频 / 图片 / 音频后<br>点击素材即可添加到时间线</div>
+      </div>
+    </aside>
+
+    <section id="stage">
+      <div id="canvas-wrap">
+        <canvas id="canvas" width="1920" height="1080"></canvas>
+        <div id="canvas-hint" class="hidden">
+          <div class="empty-icon">🎬</div>
+          <div>点击「导入媒体」开始你的第一条剪辑</div>
+          <div class="sub-hint">快捷键：空格 播放/暂停 · S 分割 · Del 删除 · ←/→ 逐帧</div>
+        </div>
+      </div>
+      <div id="transport">
+        <button class="t-btn" id="btn-play" title="播放/暂停 (Space)">▶</button>
+        <button class="t-btn" id="btn-stop" title="回到开头 (Home)">⏹</button>
+        <span id="time-display">00:00:00 / 00:00:00</span>
+        <input type="range" id="seek-slider" min="0" max="1000" value="0">
+        <span id="res-display">1920×1080</span>
+      </div>
+    </section>
+
+    <aside id="props">
+      <div class="panel-head">
+        <h3>属性</h3>
+        <span class="hint" id="props-hint">片段属性</span>
+      </div>
+      <div id="props-body">
+        <div class="empty">
+          <div class="empty-icon">⚙</div>
+          <div>选中时间线上的片段<br>在此调整位置 / 滤镜 / 字幕样式</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="timeline-panel">
+    <div id="timeline-toolbar">
+      <span id="project-name">未命名项目</span>
+      <span class="track-legend">
+        <i class="dot v"></i>视频 <i class="dot a"></i>音频 <i class="dot t"></i>字幕
+      </span>
+      <div class="zoom">
+        <button id="zoom-out" title="缩小时间线">−</button>
+        <span id="zoom-label">1.0×</span>
+        <button id="zoom-in" title="放大时间线">＋</button>
+      </div>
+    </div>
+    <div id="timeline-scroll">
+      <div id="ruler"></div>
+      <div id="tracks"></div>
+      <div id="playhead"></div>
+    </div>
+    <div id="timeline-empty" class="empty">
+      <div class="empty-icon">✂</div>
+      <div>导入媒体并点击素材，轨道会自动出现你的片段</div>
+    </div>
+  </footer>
+</div>
+
+<div id="export-overlay" class="hidden">
+  <div class="export-box">
+    <h3>正在导出成片…</h3>
+    <div class="progress-track"><div id="export-progress"></div></div>
+    <p id="export-status">准备中</p>
+    <button class="btn" id="btn-export-cancel">取消</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="js/player.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
